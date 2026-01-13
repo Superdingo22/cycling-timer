@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111111" />
+  <title>Dale’s Cycling Timer</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <!-- iOS “app-like” -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <style>
+    :root{ --bg:#111; --card:rgba(255,255,255,.08); --text:#fff; --muted:rgba(255,255,255,.75); }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:var(--bg); color:var(--text); min-height:100vh;
+      display:flex; align-items:center; justify-content:center; padding:16px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap{ width:min(580px,100%); }
+    .top-title{
+      text-align:center;
+      font-size:clamp(22px,6vw,32px);
+      font-weight:900;
+      letter-spacing:.6px;
+      margin-bottom:12px;
+    }
+    .card{
+      background:var(--card); border-radius:18px; padding:18px;
+      box-shadow:0 10px 30px rgba(0,0,0,.35); backdrop-filter:blur(6px);
+    }
+    h1{
+      margin:0 0 10px;
+      font-size:clamp(18px,4.5vw,24px);
+      font-weight:700;
+      opacity:.9;
+    }
+    .row{ display:flex; gap:12px; flex-wrap:wrap; justify-content:space-between; margin-top:10px; }
+    .pill{ flex:1 1 160px; background:rgba(0,0,0,.25); border-radius:14px; padding:10px 12px; }
+    .label{ font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; }
+    .value{ font-size:18px; font-weight:800; }
+
+    .phase{ text-align:center; margin:18px 0 10px; font-size:clamp(20px,5.5vw,34px); font-weight:900; letter-spacing:.6px; }
+    .time{
+      text-align:center; font-variant-numeric:tabular-nums;
+      font-size:clamp(52px,14vw,88px); font-weight:950; line-height:1.05; margin:6px 0 14px;
+    }
+
+    .buttons{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px; }
+    button.ctrl{
+      border:0; border-radius:16px; padding:16px 14px;
+      font-size:18px; font-weight:900; color:#111;
+      cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color: transparent;
+    }
+    button.ctrl:active{ transform:scale(.99); }
+    .start{ background:#fff; }
+    .stop{ background:#d7d7d7; }
+    .reset{ background:#bdbdbd; }
+    .full{ background:#a8a8a8; }
+
+    .settings{
+      margin-top: 18px;
+      background: rgba(0,0,0,.20);
+      border-radius: 14px;
+      padding: 12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .field{ display:flex; flex-direction: column; gap: 6px; }
+    .field label{
+      font-size: 12px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .4px;
+    }
+    .field input{
+      width: 100%; padding: 12px;
+      border-radius: 12px; border: 0; outline: none;
+      font-size: 18px; font-weight: 800;
+    }
+    .apply-wrap{ grid-column: 1 / -1; display:flex; gap: 10px; align-items:center; flex-wrap:wrap; }
+    .apply{
+      flex: 1; min-width: 160px;
+      border:0; border-radius: 14px;
+      padding: 14px; font-size: 18px; font-weight: 900;
+      color:#111; background:#ffffff; cursor:pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .msg{ font-size: 13px; color: var(--muted); line-height: 1.2; flex: 1; min-width: 180px; }
+
+    .toggles{
+      grid-column: 1 / -1;
+      display:flex; gap:10px; flex-wrap:wrap;
+      margin-top: 6px;
+    }
+    .toggle{
+      flex: 1 1 180px;
+      display:flex; align-items:center; justify-content:space-between;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 12px;
+      background: rgba(0,0,0,.25);
+    }
+    .toggle span{ font-size: 14px; font-weight: 800; }
+    .toggle input{ transform: scale(1.2); }
+
+    .hint{
+      margin-top:12px; color:var(--muted); font-size:13px; line-height:1.35; text-align:center;
+    }
+    .install{
+      margin-top: 10px;
+      text-align:center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .install button{
+      margin-top: 8px;
+      border:0; border-radius: 12px;
+      padding: 10px 14px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top-title">Dale’s Cycling Timer</div>
+
+    <div class="card">
+      <h1>Cycling Interval Timer</h1>
+
+      <div class="row">
+        <div class="pill">
+          <div class="label">Next up</div>
+          <div class="value" id="nextUp">FAST (00:30)</div>
+        </div>
+        <div class="pill">
+          <div class="label">Total workout</div>
+          <div class="value" id="totalTime">00:00</div>
+        </div>
+      </div>
+
+      <div class="phase" id="phase">Ready</div>
+      <div class="time" id="time">01:30</div>
+
+      <div class="buttons">
+        <button class="ctrl start" id="btnStart">Start</button>
+        <button class="ctrl stop" id="btnStop">Stop</button>
+        <button class="ctrl reset" id="btnReset">Reset</button>
+        <button class="ctrl full" id="btnFull">Fullscreen</button>
+      </div>
+
+      <div class="settings">
+        <div class="field">
+          <label for="slowInput">Slow seconds</label>
+          <input id="slowInput" inputmode="numeric" type="number" min="1" max="3600" value="90" />
+        </div>
+        <div class="field">
+          <label for="fastInput">Fast seconds</label>
+          <input id="fastInput" inputmode="numeric" type="number" min="1" max="3600" value="30" />
+        </div>
+
+        <div class="toggles">
+          <label class="toggle">
+            <span>Spoken cues</span>
+            <input id="talkToggle" type="checkbox" checked>
+          </label>
+          <label class="toggle">
+            <span>Keep screen awake</span>
+            <input id="wakeToggle" type="checkbox" checked>
+          </label>
+        </div>
+
+        <div class="apply-wrap">
+          <button class="apply" id="btnApply">Apply</button>
+          <div class="msg" id="msg">Edit durations then tap Apply.</div>
+        </div>
+      </div>
+
+      <div class="install" id="installBox" style="display:none;">
+        <div><b>Install this app</b> for the best experience.</div>
+        <button id="installBtn">Install</button>
+        <div style="margin-top:6px;">
+          iPhone: Share → <b>Add to Home Screen</b>
+        </div>
+      </div>
+
+      <div class="hint">
+        Repeats forever · Total time counts only while running · Speaks + beeps on change
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // -------------------------
+  // PWA: service worker
+  // -------------------------
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(()=>{});
+    });
+  }
+
+  // -------------------------
+  // State
+  // -------------------------
+  let slowTime = loadNum("slowTime", 90);
+  let fastTime = loadNum("fastTime", 30);
+
+  let timeLeft = slowTime;
+  let isFast = false;
+  let totalSeconds = 0;
+  let timerId = null;
+
+  const elTime  = document.getElementById("time");
+  const elPhase = document.getElementById("phase");
+  const elNext  = document.getElementById("nextUp");
+  const elTotal = document.getElementById("totalTime");
+  const elMsg   = document.getElementById("msg");
+
+  const slowInput = document.getElementById("slowInput");
+  const fastInput = document.getElementById("fastInput");
+  slowInput.value = slowTime;
+  fastInput.value = fastTime;
+
+  const talkToggle = document.getElementById("talkToggle");
+  const wakeToggle = document.getElementById("wakeToggle");
+  talkToggle.checked = loadBool("talkOn", true);
+  wakeToggle.checked = loadBool("wakeOn", true);
+
+  // -------------------------
+  // Install prompt (Android/Chrome)
+  // iOS doesn’t show prompt; user uses Add to Home Screen
+  // -------------------------
+  let deferredPrompt = null;
+  const installBox = document.getElementById("installBox");
+  const installBtn = document.getElementById("installBtn");
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBox.style.display = "block";
+  });
+
+  installBtn.addEventListener("click", async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice.catch(()=>{});
+    deferredPrompt = null;
+    installBox.style.display = "none";
+  });
+
+  // -------------------------
+  // Helpers
+  // -------------------------
+  function fmt(sec){
+    const m = Math.floor(sec/60);
+    const s = sec % 60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+  function clampInt(v, min, max){
+    const n = Number.parseInt(v, 10);
+    if (Number.isNaN(n)) return null;
+    return Math.max(min, Math.min(max, n));
+  }
+  function saveNum(key, val){ localStorage.setItem(key, String(val)); }
+  function loadNum(key, fallback){
+    const v = Number.parseInt(localStorage.getItem(key) ?? "", 10);
+    return Number.isFinite(v) ? v : fallback;
+  }
+  function saveBool(key, val){ localStorage.setItem(key, val ? "1":"0"); }
+  function loadBool(key, fallback){
+    const v = localStorage.getItem(key);
+    if (v === null) return fallback;
+    return v === "1";
+  }
+
+  // -------------------------
+  // Audio beep
+  // -------------------------
+  let audioCtx = null;
+  function ensureAudio(){
+    try{
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume().catch(()=>{});
+    } catch(e){}
+  }
+  function beep(){
+    try{
+      ensureAudio();
+      if (!audioCtx) return;
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(850, audioCtx.currentTime);
+
+      gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.18, audioCtx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.14);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.16);
+    } catch(e){}
+  }
+
+  // -------------------------
+  // Spoken cues (SpeechSynthesis)
+  // -------------------------
+  function speak(text){
+    try{
+      if (!talkToggle.checked) return;
+
+      // Cancel any queued speech so it feels “snappy”
+      window.speechSynthesis.cancel();
+
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 1.0;
+      u.pitch = 1.0;
+      u.volume = 1.0;
+      window.speechSynthesis.speak(u);
+    } catch(e){}
+  }
+
+  // -------------------------
+  // Wake Lock (keeps screen awake)
+  // -------------------------
+  let wakeLock = null;
+
+  async function requestWakeLock(){
+    if (!wakeToggle.checked) return;
+    if (!("wakeLock" in navigator)) return;
+
+    try{
+      wakeLock = await navigator.wakeLock.request("screen");
+    } catch(e){
+      wakeLock = null;
+    }
+  }
+
+  async function releaseWakeLock(){
+    try{
+      if (wakeLock){
+        await wakeLock.release();
+        wakeLock = null;
+      }
+    } catch(e){}
+  }
+
+  // Re-acquire wake lock when returning to the app
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && timerId && wakeToggle.checked) {
+      requestWakeLock();
+    }
+  });
+
+  // -------------------------
+  // UI
+  // -------------------------
+  function updateUI(){
+    elTime.textContent = fmt(timeLeft);
+    elTotal.textContent = fmt(totalSeconds);
+
+    if (elPhase.textContent === "Ready"){
+      document.documentElement.style.setProperty("--bg", "#111");
+      elNext.textContent = `FAST (${fmt(fastTime)})`;
+      return;
+    }
+
+    if (isFast){
+      elPhase.textContent = "FAST";
+      document.documentElement.style.setProperty("--bg", "#8b0000");
+      elNext.textContent = `SLOW (${fmt(slowTime)})`;
+    } else {
+      elPhase.textContent = "SLOW";
+      document.documentElement.style.setProperty("--bg", "#0f4d1f");
+      elNext.textContent = `FAST (${fmt(fastTime)})`;
+    }
+  }
+
+  function onPhaseChange(){
+    // Haptics (nice on phones, optional; ignored if unsupported)
+    if (navigator.vibrate) navigator.vibrate(120);
+
+    // Beep + voice cue
+    beep();
+    speak(isFast ? "Fast" : "Slow");
+  }
+
+  function switchPhase(){
+    isFast = !isFast;
+    timeLeft = isFast ? fastTime : slowTime;
+    onPhaseChange();
+    updateUI();
+  }
+
+  function tick(){
+    totalSeconds++;
+    timeLeft--;
+    if (timeLeft < 0) switchPhase();
+    else updateUI();
+  }
+
+  // -------------------------
+  // Buttons
+  // -------------------------
+  document.getElementById("btnStart").addEventListener("click", async () => {
+    if (timerId) return;
+
+    // Unlock audio/voice on user gesture
+    ensureAudio();
+
+    // Start state
+    if (elPhase.textContent === "Ready"){
+      isFast = false;
+      timeLeft = slowTime;
+      elPhase.textContent = "SLOW";
+      updateUI();
+      speak("Slow");
+    }
+
+    // Wake lock
+    await requestWakeLock();
+
+    timerId = setInterval(tick, 1000);
+  });
+
+  document.getElementById("btnStop").addEventListener("click", async () => {
+    clearInterval(timerId);
+    timerId = null;
+    await releaseWakeLock();
+  });
+
+  document.getElementById("btnReset").addEventListener("click", async () => {
+    clearInterval(timerId);
+    timerId = null;
+    totalSeconds = 0;
+    isFast = false;
+    timeLeft = slowTime;
+    elPhase.textContent = "Ready";
+    updateUI();
+    await releaseWakeLock();
+  });
+
+  document.getElementById("btnFull").addEventListener("click", async () => {
+    try{
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    }catch(e){}
+  });
+
+  document.getElementById("btnApply").addEventListener("click", () => {
+    const s = clampInt(slowInput.value, 1, 3600);
+    const f = clampInt(fastInput.value, 1, 3600);
+    if (s === null || f === null){
+      elMsg.textContent = "Please enter valid numbers.";
+      return;
+    }
+
+    slowTime = s;
+    fastTime = f;
+
+    saveNum("slowTime", slowTime);
+    saveNum("fastTime", fastTime);
+
+    // If not started, reset display to slow
+    if (elPhase.textContent === "Ready"){
+      timeLeft = slowTime;
+    } else {
+      // Keep phase, clamp remaining time if new max is smaller
+      const maxNow = isFast ? fastTime : slowTime;
+      if (timeLeft > maxNow) timeLeft = maxNow;
+    }
+
+    elMsg.textContent = `Applied: Slow ${slowTime}s / Fast ${fastTime}s`;
+    updateUI();
+  });
+
+  talkToggle.addEventListener("change", () => saveBool("talkOn", talkToggle.checked));
+  wakeToggle.addEventListener("change", async () => {
+    saveBool("wakeOn", wakeToggle.checked);
+    if (!wakeToggle.checked) await releaseWakeLock();
+    if (wakeToggle.checked && timerId) await requestWakeLock();
+  });
+
+  // Initial render
+  updateUI();
+})();
+</script>
+</body>
+</html>
